@@ -6,13 +6,13 @@
 
 #### 原理基础：测站坐标系与测量坐标系的转换
 
-![image-20240925222554428](C:\Users\tzzhu\AppData\Roaming\Typora\typora-user-images\image-20240925222554428.png)
+![image-20240925222554428](https://github.com/H0n01u1u/-/blob/main/image/image-20240925222554428.png?raw=true)
 
-![image-20240925222654963](C:\Users\tzzhu\AppData\Roaming\Typora\typora-user-images\image-20240925222654963.png)
+![image-20240925222654963](https://github.com/H0n01u1u/-/blob/main/image/image-20240925222654963.png?raw=true)
 
-![image-20240925222714815](C:\Users\tzzhu\AppData\Roaming\Typora\typora-user-images\image-20240925222714815.png)
+![image-20240925222714815](https://github.com/H0n01u1u/-/blob/main/image/image-20240925222714815.png?raw=true)
 
-![image-20240925222801841](C:\Users\tzzhu\AppData\Roaming\Typora\typora-user-images\image-20240925222801841.png)
+![image-20240925222801841](https://github.com/H0n01u1u/-/blob/main/image/image-20240925222801841.png?raw=true)
 
 
 
