@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>公共点转换参数求取</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f9fafb;
+            color: #333;
+        }
+        h1, h2 {
+            color: #4a4a4a;
+        }
+        input[type="file"], button, select, textarea {
+            display: block;
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100%;
+            max-width: 400px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: white;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        #analysisResult, #matrixResult {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        label {
+            margin-top: 10px;
+            display: inline-block;
+        }
+    </style>
+    <script src="js\xlsx.full.min.js"></script>
+    <script src=js\numeric.min.js></script>
+</head>
+<body>
+
+    <h1>公共点转换参数求取</h1>
+    <h2>读取文件</h2>
+    <input type="file" id="fileInput" accept=".xlsx" />
+    <button id="downloadSample">下载示例文件</button>
+    <div id="output"></div>
+    <h2>分析数据</h2>
+    <label for="precisionSelect">计算精度：</label>
+    <select id="precisionSelect" style="display:none;">
+        <option value="3">3位小数</option>
+        <option value="4">4位小数</option>
+        <option value="5" selected>5位小数</option>
+        <option value="6">6位小数</option>
+        <option value="7">7位小数</option>
+        <option value="8">8位小数</option>
+        <option value="9">9位小数</option>
+        <option value="10">10位小数</option>
+    </select>    
+    <button id="analyzeButton" style="display:none;">分析数据</button>
+    <div id="analysisResult"></div>
+    <div id="adjustSection" style="display:none;">
+        <h2>平差计算</h2>
+        <label for="matrixSelect">请选择权阵:</label>
+        <select id="matrixSelect">
+            <option value="identity">单位阵</option>
+            <option value="custom">自定义</option>
+        </select>
+        <textarea id="customMatrix" style="display:none;" placeholder="输入自定义矩阵P，使用逗号分隔"></textarea>
+        <button id="adjustButton">平差计算</button>
+        <div>
+            <input type="checkbox" id="showMatrices" />
+            <label for="showMatrices">显示计算过程参数</label>
+        </div>
+    </div>
+    <div id="matrixResult" style="display:none;"></div>
+
+    <script>
+        let globalData;
+
+        document.getElementById('fileInput').addEventListener('change', handleFile, false);
+        document.getElementById('downloadSample').addEventListener('click', function() {
+            window.location.href = '工测大作业-示例文件.xlsx';
+        });
+
+        function handleFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                globalData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                displayData(globalData);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function displayData(data) {
+            const output = document.getElementById('output');
+            let html = '<table>';
+
+            data.forEach((row, rowIndex) => {
+                html += '<tr>';
+                row.forEach(cell => {
+                    html += rowIndex === 0 ? `<th>${cell}</th>` : `<td>${cell}</td>`;
+                });
+                html += '</tr>';
+            });
+
+            html += '</table>';
+            output.innerHTML = html;
+
+            const analyzeButton = document.getElementById('analyzeButton');
+            const precisionSelect = document.getElementById('precisionSelect');
+            analyzeButton.style.display = 'block';
+            precisionSelect.style.display = 'block';
+
+            analyzeButton.onclick = function() {
+                analyzeData(globalData);
+            };
+        }
+
+        function analyzeData(data) {
+            const precision = parseInt(document.getElementById('precisionSelect').value, 10);
+
+            try {
+                function parseCellValue(value) {
+                    if (value == null) return '';
+                    if (typeof value === 'number') return value;
+                    return parseFloat(String(value).replace(/[^\d.-]/g, ''));
+                }
+
+                const X1_prime = parseCellValue(data[1][5]);
+                const X2_prime = parseCellValue(data[2][5]);
+                const X1 = parseCellValue(data[1][1]);
+                const X2 = parseCellValue(data[2][1]);
+                const Y1_prime = parseCellValue(data[1][6]);
+                const Y2_prime = parseCellValue(data[2][6]);
+                const Y1 = parseCellValue(data[1][2]);
+                const Y2 = parseCellValue(data[2][2]);
+
+                if ([X1_prime, X2_prime, X1, X2, Y1_prime, Y2_prime, Y1, Y2].some(isNaN)) {
+                    throw new Error("数据中存在无效值，无法计算！");
+                }
+
+                const denominator = (X1_prime - X2_prime) ** 2 + (Y1_prime - Y2_prime) ** 2;
+                if (denominator === 0) {
+                    throw new Error("除以零错误，无法计算！");
+                }
+
+                const c0 = ((X1_prime - X2_prime) * (X1 - X2) + (Y1_prime - Y2_prime) * (Y1 - Y2)) / denominator;
+                const d0 = ((X1_prime - X2_prime) * (Y1 - Y2) - (Y1_prime - Y2_prime) * (X1 - X2)) / denominator;
+
+                const X_P0 = X1 - X1_prime * c0 + Y1_prime * d0;
+                const Y_P0 = Y1 - Y1_prime * c0 - X1_prime * d0;
+
+                const n = (data.length - 1) * 2;
+                const t = 4;
+                const r = n - t;
+                const u = 4;
+
+                const analysisResult = document.getElementById('analysisResult');
+                analysisResult.innerHTML = 
+                    `<p>平差参数 n = ${n}、t = ${t}、r = ${r}、u = ${u}</p>
+                    <p>待估参数近似值 c<sup>0</sup> = ${c0.toFixed(precision)}、d<sup>0</sup> = ${d0.toFixed(precision)}、X<sub>P</sub><sup>0</sup> = ${X_P0.toFixed(precision)}、Y<sub>P</sub><sup>0</sup> = ${Y_P0.toFixed(precision)}</p>`;
+
+                const adjustSection = document.getElementById('adjustSection');
+                if (r > 0) {
+                    analysisResult.innerHTML += `<p class="success">检验通过，符合平差条件</p>`;
+                    adjustSection.style.display = 'block';
+                } else {
+                    analysisResult.innerHTML += `<p class="error">检验失败，请确保存在多余观测</p>`;
+                    adjustSection.style.display = 'none';
+                }
+            } catch (error) {
+                document.getElementById('analysisResult').innerHTML = `<p style="color:red;">错误: ${error.message}</p>`;
+            }
+        }
+
+        document.getElementById('matrixSelect').addEventListener('change', function() {
+            const customMatrix = document.getElementById('customMatrix');
+            customMatrix.style.display = this.value === 'custom' ? 'block' : 'none';
+        });
+
+        document.getElementById('adjustButton').addEventListener('click', function() {
+            constructMatrices(globalData);
+        });
+
+        function constructMatrices(data) {
+            const precision = parseInt(document.getElementById('precisionSelect').value, 10);
+            const showMatrices = document.getElementById('showMatrices').checked;
+            const matrixB = [];
+            const matrixL = [];
+
+            const analysisResult = document.getElementById('analysisResult').innerHTML;
+
+            const X_P0_match = analysisResult.match(/X<sub>P<\/sub><sup>0<\/sup> = ([\d.-]+)/);
+            const Y_P0_match = analysisResult.match(/Y<sub>P<\/sub><sup>0<\/sup> = ([\d.-]+)/);
+            const c0_match = analysisResult.match(/c<sup>0<\/sup> = ([\d.-]+)/);
+            const d0_match = analysisResult.match(/d<sup>0<\/sup> = ([\d.-]+)/);
+
+            if (!X_P0_match || !Y_P0_match || !c0_match || !d0_match) {
+                console.error("无法从分析结果中提取必要参数。请检查分析结果格式。");
+                return;
+            }
+
+            const X_P0 = parseFloat(X_P0_match[1]);
+            const Y_P0 = parseFloat(Y_P0_match[1]);
+            const c0 = parseFloat(c0_match[1]);
+            const d0 = parseFloat(d0_match[1]);
+
+            for (let i = 1; i < data.length; i++) {
+                const X_prime = parseFloat(data[i][5]);
+                const Y_prime = parseFloat(data[i][6]);
+
+                if (isNaN(X_prime) || isNaN(Y_prime)) continue;
+
+                matrixB.push([X_prime, Y_prime, 0, 1]);
+                matrixB.push([Y_prime, X_prime, 1, 0]);
+
+                const l1 = parseFloat(data[i][1]) - (X_P0 + X_prime * c0 - Y_prime * d0);
+                const l2 = parseFloat(data[i][2]) - (Y_P0 + Y_prime * c0 + X_prime * d0);
+                matrixL.push([l1]);
+                matrixL.push([l2]);
+            }
+
+            const P = document.getElementById('matrixSelect').value === 'custom' ? parseCustomMatrix() : createIdentityMatrix(matrixL.length);
+            const BT = numeric.transpose(matrixB);
+            const N_bb = numeric.dot(numeric.dot(BT, P), matrixB);
+            const W = numeric.dot(numeric.dot(BT, P), matrixL);
+
+            let xHat;
+            try {
+                const N_bb_inv = numeric.inv(N_bb);
+                xHat = numeric.dot(N_bb_inv, W);
+            } catch {
+                xHat = "矩阵不可逆，无法计算 \\widehat{x}";
+            }
+
+            const matrixResult = document.getElementById('matrixResult');
+            if (showMatrices) {
+                matrixResult.style.display = 'block';
+                matrixResult.innerHTML = 
+                    `<h3>矩阵 B</h3>
+                    <pre>${matrixB.map(row => `[${row.map(num => num.toFixed(precision)).join(', ')}]`).join(',\n')}</pre>
+                    <h3>矩阵 L</h3>
+                    <pre>${matrixL.map(row => `[${row.map(num => num.toFixed(precision)).join(', ')}]`).join(',\n')}</pre>
+                    <h3>矩阵 N<sub>bb</sub></h3>
+                    <pre>${N_bb.map(row => `[${row.map(num => num.toFixed(precision)).join(', ')}]`).join(',\n')}</pre>
+                    <h3>矩阵 W</h3>
+                    <pre>${W.map(row => `[${row.map(num => num.toFixed(precision)).join(', ')}]`).join(',\n')}</pre>
+                    <h3>矩阵 \\widehat{x}</h3>
+                    <pre>${Array.isArray(xHat) ? xHat.map(row => `[${row.map(num => num.toFixed(precision)).join(', ')}]`).join(',\n') : xHat}</pre>`;
+            } else {
+                matrixResult.style.display = 'none';
+            }
+
+            if (Array.isArray(xHat)) {
+                const c = c0 + xHat[0][0];
+                const d = d0 + xHat[1][0];
+                const X_P = X_P0 + xHat[2][0];
+                const Y_P = Y_P0 + xHat[3][0];
+
+                const adjustmentResult = 
+                    `<h3>调整后的参数</h3>
+                    <p>c = ${c.toFixed(precision)}, d = ${d.toFixed(precision)}, X<sub>P</sub> = ${X_P.toFixed(precision)}, Y<sub>P</sub> = ${Y_P.toFixed(precision)}</p>`;
+
+                if (showMatrices) {
+                    matrixResult.innerHTML += adjustmentResult;
+                } else {
+                    matrixResult.style.display = 'block';
+                    matrixResult.innerHTML = adjustmentResult;
+                }
+            }
+        }
+
+        function createIdentityMatrix(size) {
+            return numeric.identity(size);
+        }
+
+        function parseCustomMatrix() {
+            try {
+                const input = document.getElementById('customMatrix').value.trim();
+                return input.split('\n').map(row => row.split(',').map(Number));
+            } catch {
+                alert("自定义矩阵格式错误，请检查输入！");
+                return createIdentityMatrix(globalData.length * 2);
+            }
+        }
+</script>
+</body>
+</html>
